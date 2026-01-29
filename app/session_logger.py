@@ -1,8 +1,5 @@
-from app.state import InterviewState
-
-
 class SessionLogger:
-    def __init__(self, state: InterviewState):
+    def __init__(self, state: dict[str]):
         self.state = state
         self.turns = []
 
@@ -23,7 +20,7 @@ class SessionLogger:
 
     def export(self) -> dict:
         return {
-            "team_name": self.state.team_name,
+            "team_name": self.state['team_name'],
             "turns": self.turns,
-            "final_feedback": self.state.final_feedback,
+            "final_feedback": self.state['final_feedback'],
         }

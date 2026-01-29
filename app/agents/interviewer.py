@@ -1,4 +1,3 @@
-from app.state import InterviewState
 from app.llm.mistral import MistralLLM
 
 
@@ -12,14 +11,14 @@ class InterviewerAgent:
     def __init__(self, llm: MistralLLM):
         self.llm = llm
 
-    def ask_question(self, state: InterviewState, instruction: str) -> str:
+    def ask_question(self, state: dict[str], instruction: str) -> str:
         prompt = f"""
-Позиция: {state.position}
-Ожидаемый уровень: {state.target_grade}
-Опыт: {state.experience_years} лет
+Позиция: {state['position']}
+Ожидаемый уровень: {state['target_grade']}
+Опыт: {state['experience_years']} лет
 
-Текущая тема: {state.current_topic}
-Сложность: {state.difficulty}
+Текущая тема: {state['current_topic']}
+Сложность: {state['difficulty']}
 
 Инструкция:
 {instruction}

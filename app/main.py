@@ -1,4 +1,4 @@
-from app.state import InterviewState, InterviewPhase
+from app.state import InterviewPhase
 from app.llm.mistral import MistralLLM
 from app.graph.workflow import build_graph
 from app.session_logger import SessionLogger
@@ -21,12 +21,33 @@ def main():
     grade = input("Грейд: ").strip()
     experience = int(input("Опыт (в годах): ").strip())
 
-    state = InterviewState(
-        team_name=team_name,
-        position=position,
-        target_grade=grade,
-        experience_years=experience,
-    )
+    state = {
+        "team_name": team_name,
+        "position": position,
+        "target_grade": grade,
+        "experience_years": experience,
+
+        "phase": InterviewPhase.ASKING_QUESTION,
+
+        "current_question": None,
+        "current_answer": None,
+        "current_instruction": None,
+
+        "dialog_history": [],
+        "observer_notes": [],
+
+        "confirmed_skills": [],
+        "knowledge_gaps": {},
+        "confidence_scores": [],
+
+        "current_topic": "basics",
+        "difficulty": 2,
+
+        "correct_answers": 0,
+        "wrong_answers": 0,
+
+        "final_feedback": None,
+    }
 
     llm = MistralLLM()
     graph = build_graph(llm)

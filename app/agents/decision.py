@@ -1,4 +1,3 @@
-from app.state import InterviewState
 from app.llm.mistral import MistralLLM
 
 
@@ -11,16 +10,16 @@ class DecisionAgent:
     def __init__(self, llm: MistralLLM):
         self.llm = llm
 
-    def make_decision(self, state: InterviewState) -> str:
+    def make_decision(self, state: dict[str]) -> str:
         prompt = f"""
-Позиция: {state.position}
-Целевой уровень: {state.target_grade}
+Позиция: {state['position']}
+Целевой уровень: {state['target_grade']}
 
 История интервью:
-{state.history}
+{state['history']}
 
 Наблюдения:
-{state.observer_notes}
+{state['observer_notes']}
 
 Сформируй структурированный отчет:
 A. Decision

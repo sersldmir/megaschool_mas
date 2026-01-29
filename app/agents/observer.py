@@ -1,6 +1,5 @@
 import json
 from app.llm.mistral import MistralLLM
-from app.state import InterviewState
 
 
 class ObserverAgent:
@@ -23,16 +22,16 @@ class ObserverAgent:
     def __init__(self, llm: MistralLLM):
         self.llm = llm
 
-    def analyze_answer(self, state: InterviewState, answer: str) -> dict:
+    def analyze_answer(self, state: dict[str], answer: str) -> dict:
         prompt = f"""
 Вопрос:
-{state.current_question}
+{state['current_question']}
 
 Ответ кандидата:
 {answer}
 
 Контекст интервью:
-{state.dialog_history}
+{state['dialog_history']}
 
 Верни JSON следующего формата:
 {{
