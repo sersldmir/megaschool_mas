@@ -37,7 +37,12 @@ def build_graph(llm):
             answer=state["current_answer"]
         )
 
-        state["observer_notes"].append(analysis["note"])
+        state["observer_notes"].append(
+            f"[Observer reasoning] {analysis['internal_thought']}"
+        )
+
+        state["last_observer_note"] = analysis["note"]
+        state["current_instruction"] = analysis["next_action"]
 
         if analysis["verdict"] == "correct":
             state["correct_answers"] += 1

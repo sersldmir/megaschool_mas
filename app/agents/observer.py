@@ -1,51 +1,51 @@
 import json
 from app.llm.mistral import MistralLLM
 
-
 class ObserverAgent:
     SYSTEM_PROMPT = """
 Ты — наблюдатель технического интервью.
-Ты анализируешь ответы кандидата.
 
-Твоя задача:
-- оценить корректность ответа
-- оценить уверенность
-- выявить пробелы в знаниях
-- предложить рекомендацию интервьюеру
+Ты анализируешь ответ кандидата и ведёшь скрытую рефлексию.
 
-Ты НЕ изменяешь состояние системы.
-Ты НЕ общаешься с кандидатом.
+Правила:
+- ты НЕ общаешься с кандидатом
+- ты НЕ меняешь состояние напрямую
+- ты объясняешь своё мышление
 
-Отвечай СТРОГО в JSON формате.
+Отвечай СТРОГО в JSON.
 """
 
     def __init__(self, llm: MistralLLM):
         self.llm = llm
 
-    def analyze_answer(self, state: dict[str], answer: str) -> dict:
+    def analyze_answer(self, state: dict, answer: str) -> dict:
         prompt = f"""
 Вопрос:
-{state['current_question']}
+{state["current_question"]}
 
 Ответ кандидата:
 {answer}
 
-Контекст интервью:
-{state['dialog_history']}
+Текущая тема: {state["current_topic"]}
+Сложность: {state["difficulty"]}
 
-Верни JSON следующего формата:
+Контекст интервью:
+{state["dialog_history"]}
+
+Верни JSON:
+
 {{
   "verdict": "correct | partial | wrong",
   "confidence": "low | medium | high",
   "next_action": "deepen | simplify | change_topic | continue",
-  "note": "краткое объяснение для интервьюера",
-  "knowledge_gap": "если есть ошибка — кратко укажи, в чём именно пробел",
-  "expected_answer": "если verdict != correct — кратко напиши правильный ответ"
+  "internal_thought": "подробное объяснение, что кандидат понял или не понял",
+  "note": "краткая инструкция интервьюеру",
+  "knowledge_gap": "если ошибка — в чём пробел",
+  "expected_answer": "если verdict != correct — правильный ответ"
 }}
 """
-
         raw = self.llm.chat(self.SYSTEM_PROMPT, prompt, temperature=0.0)
-        raw = raw.replace('```json', '').replace('```', '').replace('\n', '').strip()
+        raw = raw.replace("```json", "").replace("```", "").replace('\n', '').strip()
 
         try:
             parsed = json.loads(raw)
@@ -54,9 +54,10 @@ class ObserverAgent:
                 "verdict": "partial",
                 "confidence": "low",
                 "next_action": "simplify",
-                "note": "Ответ неструктурирован или содержит ошибки",
-                "knowledge_gap": "Неясное понимание темы",
-                "expected_answer": "Требуется базовое объяснение концепта"
+                "internal_thought": "Ответ неструктурирован, вероятно поверхностное понимание",
+                "note": "Упростить вопрос и проверить базу",
+                "knowledge_gap": "Непонимание базовой концепции",
+                "expected_answer": "Базовое определение и пример"
             }
 
         return parsed

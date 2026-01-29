@@ -77,8 +77,7 @@ def main():
             logger.log_turn(
                 agent_message=state['current_question'],
                 user_message=user_answer,
-                internal_thoughts=(state['observer_notes'][-1]
-                                  if state['observer_notes'] else "")
+                internal_thoughts=state.get("last_observer_note", "")
             )
 
             state['phase'] = InterviewPhase.ANALYZING_ANSWER
