@@ -1,32 +1,35 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from enum import Enum
+from typing import List, Dict, Optional
 
-@dataclass
-class InterviewTurn:
-    turn_id: int
-    agent_visible_message: str
-    user_message: str
-    internal_thoughts: str
-
+class InterviewPhase(str, Enum):
+    ASKING_QUESTION = "asking_question"
+    WAITING_FOR_ANSWER = "waiting_for_answer"
+    ANALYZING_ANSWER = "analyzing_answer"
+    DECISION = "decision"
+    FINISHED = "finished"
 
 @dataclass
 class InterviewState:
+
     team_name: str
     position: str
     target_grade: str
     experience_years: int
 
+    phase: InterviewPhase = InterviewPhase.ASKING_QUESTION
+
     current_question: Optional[str] = None
     current_answer: Optional[str] = None
-    last_analysis: Optional[dict] = None
 
-    history: List[Dict[str, str]] = field(default_factory=list)
-    turns: List[InterviewTurn] = field(default_factory=list)
+    dialog_history: List[Dict[str, str]] = field(default_factory=list)
+
+    observer_notes: List[str] = field(default_factory=list)
 
     current_topic: str = "basics"
     difficulty: int = 2
 
-    observer_notes: List[str] = field(default_factory=list)
+    correct_answers: int = 0
+    wrong_answers: int = 0
 
-    finished: bool = False
     final_feedback: Optional[str] = None
