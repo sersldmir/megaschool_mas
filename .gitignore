@@ -1,3 +1,3 @@
 dqa_venv/
 .env
-.vscode/
+.vscode/*
