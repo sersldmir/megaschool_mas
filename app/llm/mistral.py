@@ -21,7 +21,7 @@ class MistralLLM:
                 UserMessage(role="user", content=user_prompt),
             ],
             temperature=temperature,
-            max_tokens=500,
+            max_tokens=1500,
         )
 
         return response.choices[0].message.content.strip()
