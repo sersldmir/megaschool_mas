@@ -1,26 +1,27 @@
 import os
 from dotenv import load_dotenv
-from openai import OpenAI
+from mistralai import Mistral, UserMessage, SystemMessage
 
 load_dotenv()
 
 
 class MistralLLM:
     def __init__(self):
-        self.client = OpenAI(
+        self.client = Mistral(
             api_key=os.getenv("MISTRAL_API_KEY"),
-            base_url="https://api.mistral.ai/v1"
         )
         self.model = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
 
     def chat(self, system_prompt: str, user_prompt: str, temperature: float = 0.3):
-        response = self.client.chat.completions.create(
+
+        response = self.client.chat.complete(
             model=self.model,
             messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
+                SystemMessage(role="system", content=system_prompt),
+                UserMessage(role="user", content=user_prompt),
             ],
             temperature=temperature,
-            max_tokens=400,
+            max_tokens=500,
         )
-        return response.choices[0].message.content
+
+        return response.choices[0].message.content.strip()

@@ -1,35 +1,80 @@
 from app.state import InterviewState
 from app.llm.mistral import MistralLLM
-from app.agents.interviewer import InterviewerAgent
-from app.agents.observer import ObserverAgent
+from app.graph.workflow import build_graph
+from app.session_logger import SessionLogger
+import json
+from datetime import datetime
 
+STOP_WORDS = [
+    "стоп интервью",
+    "остановка интервью",
+    "стоп",
+    "я ухожу",
+    "интервью окончено"
+]
 
 def main():
+    print("=== Начало интервью ===")
+    team_name = input("Название команды: ")
+    position = input("Позиция: ")
+    grade = input("Грейд: ")
+    experience = int(input("Опыт (в годах): "))
+
     state = InterviewState(
-        position="Data Engineer",
-        target_grade="Middle",
-        experience_years=3
+        team_name=team_name,
+        position=position,
+        target_grade=grade,
+        experience_years=experience
     )
 
     llm = MistralLLM()
-    interviewer = InterviewerAgent(llm)
-    observer = ObserverAgent(llm)
+    graph = build_graph(llm)
+    logger = SessionLogger(state)
 
-    instruction = "Начни интервью с базового вопроса по SQL."
-    question = interviewer.ask_question(state, instruction)
-    print("QUESTION:", question)
+    print("\n=== Интервью в процессе ===")
 
-    answer = input("\nANSWER: ")
+    while not state.finished:
+        state = graph.invoke(state)
 
-    state.history.append({
-        "question": question,
-        "answer": answer
-    })
+        question = state.current_question
+        print(f"\nИнтервьюер: {question}")
 
-    analysis = observer.analyze_answer(state, answer)
+        user_answer = input("Ваш ответ: ").strip()
 
-    print("\n[HIDDEN OBSERVER NOTE]")
-    print(analysis)
+        if user_answer.lower() in STOP_WORDS:
+            state.finished = True
+            continue
+
+        state.current_answer = user_answer
+        state.history.append({
+            "question": question,
+            "answer": user_answer
+        })
+
+        state = graph.invoke(state)
+
+        internal_thoughts = ""
+        if state.last_analysis:
+            internal_thoughts = (
+                f"[Observer]: {state.last_analysis.get('note', '')}"
+            )
+
+        logger.log_turn(
+            agent_message=question,
+            user_message=user_answer,
+            internal_thoughts=internal_thoughts
+        )
+
+        if not state.final_feedback:
+            state = graph.invoke(state)
+
+    print("\n=== Фидбэк по интервью ===")
+    print(state.final_feedback)
+
+    print("\n=== Лог интервью ===")
+    print(logger.export())
+    with open(f"log_data/interview_state_{datetime.now().strftime('%Y%m%d%H%M%S')}.json", "w") as f:
+        json.dump(state, f, indent=4)
 
 
 if __name__ == "__main__":
