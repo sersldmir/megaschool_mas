@@ -3,4 +3,4 @@ dqa_venv/
 **/__pycache__/
 *.pyc
 .vscode/
-./app/log_data/*.json
+app/log_data/

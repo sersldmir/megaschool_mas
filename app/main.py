@@ -65,7 +65,8 @@ def main():
 
             if user_answer.lower() in STOP_WORDS:
                 state['phase'] = InterviewPhase.DECISION
-                continue
+                state = graph.invoke(state)
+                break
 
             state['current_answer'] = user_answer
             state['dialog_history'].append({
@@ -89,9 +90,9 @@ def main():
     exported = logger.export()
     print(exported)
 
-    filename = f"log_data/interview_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(exported, f, ensure_ascii=False, indent=2)
+    filename = f"./app/log_data/interview_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    with open(filename, "w") as f:
+        json.dump(exported, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == "__main__":
