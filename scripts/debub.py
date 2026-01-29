@@ -1,24 +1,33 @@
 import os
-from openai import OpenAI
 from dotenv import load_dotenv
+from openai import OpenAI
 
 load_dotenv()
 
+api_key = os.getenv("MISTRAL_API_KEY")
+
 client = OpenAI(
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    base_url="https://openrouter.ai/api/v1"
+    api_key=api_key,
+    base_url="https://api.mistral.ai/v1"
 )
 
-MODEL = os.getenv("OPENROUTER_MODEL")
+MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
 
 def main():
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
-            {"role": "system", "content": "Ты вежливый и краткий ассистент."},
-            {"role": "user", "content": "Объясни разницу между JOIN и UNION в SQL."}
+            {
+                "role": "system",
+                "content": "Ты вежливый и краткий технический ассистент."
+            },
+            {
+                "role": "user",
+                "content": "Объясни индексы в PostgreSQL."
+            }
         ],
-        temperature=0.2
+        # temperature=0.2,
+        # max_tokens=300
     )
 
     print("MODEL:", MODEL)
