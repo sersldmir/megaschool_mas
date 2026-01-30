@@ -85,21 +85,44 @@ def interviewer_node(state: InterviewState):
     
     messages = [SystemMessage(content=prompt)] + state["messages"]
     
-    response_text = call_mistral(messages, temperature=0.7)
+    response_text = call_mistral(messages, temperature=0.7, json_mode=True)
+    response_data = parse_json_garbage(response_text)
+
+    interviewer_thought = response_data.get("thought", "Thinking process hidden...")
+    raw_message = response_data.get("message", "Error generating message.")
+
+    if isinstance(raw_message, str):
+        final_message = raw_message
+    elif isinstance(raw_message, list):
+        final_message = " ".join([str(x) for x in raw_message])
+    elif isinstance(raw_message, dict):
+        if "questions" in raw_message and isinstance(raw_message["questions"], list):
+            final_message = " ".join([str(x) for x in raw_message["questions"]])
+        elif "text" in raw_message:
+             final_message = str(raw_message["text"])
+        else:
+            final_message = " ".join([str(v) for v in raw_message.values()])
+    else:
+        final_message = str(raw_message)
+
+    mentor_thoughts = state.get("temp_thoughts", "No analysis")
+
+    combined_thoughts = (
+        f"[Interviewer]: {interviewer_thought}\n"
+        f"[Mentor]: {mentor_thoughts}\nВыполни следующее: {instruction}"
+    )
     
     current_turn = state["turn_count"] + 1
-    
-    internal_thoughts = state.get("temp_thoughts", "[Mentor silence]")
     
     new_log = TurnLog(
         turn_id=current_turn,
         agent_visible_message=response_text,
         user_message=state["last_user_input"],
-        internal_thoughts=f"[Mentor]: {internal_thoughts} \nВыполни следующее: {instruction}"
+        internal_thoughts=combined_thoughts
     )
     
     return {
-        "messages": [AIMessage(content=response_text)],
+        "messages": [AIMessage(content=final_message)],
         "turn_count": current_turn,
         "logs": [new_log]
     }
