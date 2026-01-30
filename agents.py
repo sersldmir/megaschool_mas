@@ -10,7 +10,7 @@ from prompts import (
 )
 
 def profile_parser_node(state: InterviewState):
-    """Анализирует первое сообщение и создает профиль."""
+
     last_msg = state["messages"][-1].content
     state["last_user_input"] = last_msg
     
