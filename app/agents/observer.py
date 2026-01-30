@@ -1,47 +1,38 @@
 import json
+from typing import Any, Dict
 from app.llm.mistral import MistralLLM
 from app.state import InterviewState
 
-
 class ObserverAgent:
-    
     SYSTEM_PROMPT = """Ты — наблюдатель и ментор на техническом интервью.
-
 Твоя роль:
 - Анализировать ответы кандидата на техническую корректность
 - Обнаруживать попытки уйти от темы или манипулировать беседой
 - Выявлять галлюцинации (уверенные, но ложные утверждения)
 - Оценивать уровень понимания и уверенности кандидата
 - Давать инструкции интервьюеру о дальнейших действиях
-
 Что ты НЕ делаешь:
 - НЕ общаешься с кандидатом напрямую
 - НЕ принимаешь финальное решение о найме (это делает Hiring Manager)
-
 Ты должен быть объективным, строгим, но справедливым.
-
 ВАЖНО: Отвечай ТОЛЬКО валидным JSON без markdown форматирования."""
 
     def __init__(self, llm: MistralLLM):
         self.llm = llm
 
-    def analyze_answer(self, state: InterviewState, answer: str) -> dict:
-        
+    def analyze_answer(self, state: InterviewState, answer: str) -> Dict[str, Any]:
         history_context = ""
         if state["dialog_history"]:
             history_context = "Предыдущие ответы:\n"
             for turn in state["dialog_history"][-3:]:
                 history_context += f"Q: {turn['question'][:100]}...\n"
                 history_context += f"A: {turn['answer'][:150]}...\n\n"
-        
-        prompt = f"""Анализируй ответ кандидата на техническое интервью.
 
+        prompt = f"""Анализируй ответ кандидата на техническое интервью.
 Вопрос интервьюера:
 {state["current_question"]}
-
 Ответ кандидата:
 {answer}
-
 Контекст интервью:
 Позиция: {state["position"]}
 Уровень: {state["target_grade"]}
@@ -49,17 +40,13 @@ class ObserverAgent:
 Текущая тема: {state["current_topic"]}
 Сложность вопроса: {state["difficulty"]}/5
 Статистика: {state["correct_answers"]} правильных, {state["wrong_answers"]} неправильных
-
 {history_context}
-
 Проанализируй ответ по следующим критериям:
-
 1. РЕЛЕВАНТНОСТЬ: Отвечает ли кандидат на вопрос или пытается уйти от темы?
 2. КОРРЕКТНОСТЬ: Правильный ли ответ с технической точки зрения?
 3. ПОЛНОТА: Насколько глубоко кандидат понимает тему?
 4. ЧЕСТНОСТЬ: Пытается ли выкрутиться или честно признаёт незнание?
 5. ГАЛЛЮЦИНАЦИИ: Есть ли уверенные, но ложные утверждения?
-
 Верни JSON следующей структуры:
 {{
   "is_on_topic": true/false,
@@ -81,42 +68,59 @@ class ObserverAgent:
     "engagement": "вовлечённость в беседу"
   }}
 }}
-
-Будь строгим, но объективным. Отвечай ТОЛЬКО JSON без markdown форматирования."""
+Отвечай ТОЛЬКО JSON без markdown форматирования."""
 
         try:
-            raw = self.llm.chat(self.SYSTEM_PROMPT, prompt, temperature=0.1)
-            
-            raw = raw.strip()
-            if raw.startswith("```json"):
-                raw = raw[7:]
-            if raw.startswith("```"):
-                raw = raw[3:]
-            if raw.endswith("```"):
-                raw = raw[:-3]
-            raw = raw.strip()
-            
-            parsed = json.loads(raw)
-            
-            required_fields = [
-                "is_on_topic", "verdict", "confidence", 
-                "internal_thought", "next_action", "expected_answer"
-            ]
-            for field in required_fields:
-                if field not in parsed:
-                    parsed[field] = self._get_default_value(field)
-            
-            return parsed
-            
-        except json.JSONDecodeError as e:
-            print(f"[WARNING] JSON decode error: {e}")
-            print(f"[WARNING] Raw response: {raw[:200]}...")
-            return self._get_fallback_analysis(answer)
-        except Exception as e:
-            print(f"[ERROR] Analysis failed: {e}")
+            parsed = self._chat_json_with_retry(
+                system_prompt=self.SYSTEM_PROMPT,
+                user_prompt=prompt,
+                temperature_first=0.1,
+                retries=2,
+            )
+            return self._normalize_analysis(parsed)
+        except Exception:
             return self._get_fallback_analysis(answer)
 
-    def _get_default_value(self, field: str):
+    def _chat_json_with_retry(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        temperature_first: float,
+        retries: int,
+    ) -> Dict[str, Any]:
+        last_raw = ""
+        for attempt in range(retries + 1):
+            temperature = temperature_first if attempt == 0 else 0.0
+            raw = self.llm.chat(system_prompt, user_prompt, temperature=temperature)
+            last_raw = raw
+            cleaned = self._strip_code_fences(raw)
+            try:
+                parsed = json.loads(cleaned)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+
+            user_prompt = (
+                "Твой предыдущий ответ был НЕ валидным JSON. "
+                "Верни ТОЛЬКО валидный JSON без markdown, без пояснений, строго по требуемой структуре.\n\n"
+                f"Исходное задание:\n{user_prompt}\n\n"
+                f"Твой предыдущий (ошибочный) ответ:\n{last_raw}"
+            )
+
+        raise ValueError("Failed to produce valid JSON from LLM")
+
+    def _strip_code_fences(self, raw: str) -> str:
+        s = raw.strip()
+        if s.startswith("```json"):
+            s = s[7:]
+        if s.startswith("```"):
+            s = s[3:]
+        if s.endswith("```"):
+            s = s[:-3]
+        return s.strip()
+
+    def _normalize_analysis(self, parsed: Dict[str, Any]) -> Dict[str, Any]:
         defaults = {
             "is_on_topic": True,
             "off_topic_reason": "",
@@ -128,42 +132,60 @@ class ObserverAgent:
             "next_action": "continue",
             "next_topic_suggestion": "basics",
             "difficulty_adjustment": 0,
-            "note_to_interviewer": "Продолжай в том же духе",
+            "note_to_interviewer": "Продолжай интервью",
             "knowledge_gap": "",
             "expected_answer": "",
             "soft_skill_signals": {
                 "clarity": "medium",
                 "honesty": "medium",
-                "engagement": "medium"
-            }
+                "engagement": "medium",
+            },
         }
-        return defaults.get(field, "")
 
-    def _get_fallback_analysis(self, answer: str) -> dict:
+        out: Dict[str, Any] = {**defaults, **parsed}
+
+        if out["verdict"] not in {"correct", "partial", "wrong", "dont_know"}:
+            out["verdict"] = defaults["verdict"]
+
+        if out["confidence"] not in {"low", "medium", "high"}:
+            out["confidence"] = defaults["confidence"]
+
+        if out["next_action"] not in {"deepen", "simplify", "change_topic", "continue", "return_to_topic"}:
+            out["next_action"] = defaults["next_action"]
+
+        if not isinstance(out.get("difficulty_adjustment"), int) or out["difficulty_adjustment"] not in {-2, -1, 0, 1, 2}:
+            out["difficulty_adjustment"] = 0
+
+        if not isinstance(out.get("soft_skill_signals"), dict):
+            out["soft_skill_signals"] = defaults["soft_skill_signals"]
+
+        return out
+
+    def _get_fallback_analysis(self, answer: str) -> Dict[str, Any]:
         answer_lower = answer.lower()
-        
         is_short = len(answer.split()) < 5
-        has_uncertainty = any(word in answer_lower for word in 
-                             ["не знаю", "не уверен", "может быть", "наверное"])
-        
+        has_uncertainty = any(word in answer_lower for word in ["не знаю", "не уверен", "может быть", "наверное"])
+
         return {
             "is_on_topic": True,
             "off_topic_reason": "",
-            "verdict": "partial" if has_uncertainty or is_short else "correct",
+            "verdict": "dont_know" if has_uncertainty else ("partial" if is_short else "correct"),
             "confidence": "low" if has_uncertainty else "medium",
             "hallucination_detected": False,
             "hallucination_details": "",
-            "internal_thought": f"Ответ {'краткий' if is_short else 'развёрнутый'}. "
-                              f"{'Есть признаки неуверенности.' if has_uncertainty else 'Звучит уверенно.'}",
+            "internal_thought": (
+                f"Ответ {'краткий' if is_short else 'развёрнутый'}. "
+                f"{'Есть признаки неуверенности.' if has_uncertainty else 'Звучит уверенно.'}"
+            ),
             "next_action": "simplify" if has_uncertainty else "continue",
             "next_topic_suggestion": "basics",
             "difficulty_adjustment": -1 if has_uncertainty else 0,
             "note_to_interviewer": "Продолжай интервью",
-            "knowledge_gap": "Требуется дополнительная проверка понимания темы",
+            "knowledge_gap": "Требуется дополнительная проверка понимания темы" if is_short or has_uncertainty else "",
             "expected_answer": "Детальный технический ответ с примерами",
             "soft_skill_signals": {
                 "clarity": "low" if is_short else "medium",
                 "honesty": "high" if has_uncertainty else "medium",
-                "engagement": "low" if is_short else "medium"
-            }
+                "engagement": "low" if is_short else "medium",
+            },
         }
