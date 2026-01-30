@@ -1,5 +1,5 @@
 import operator
-from typing import Annotated, List, TypedDict, Optional, Union
+from typing import Annotated, List, TypedDict, Optional, Union, Dict, Any
 from pydantic import BaseModel, Field
 from langchain_core.messages import BaseMessage
 
@@ -29,10 +29,11 @@ class FinalFeedback(BaseModel):
     grade_assessment: str
     hiring_recommendation: str
     confidence_score: int
-    confirmed_skills: List[str]
-    knowledge_gaps: List[str]
-    soft_skills_analysis: dict
-    roadmap: List[str]
+
+    confirmed_skills: List[Union[str, Dict[str, Any]]] 
+    knowledge_gaps: List[Union[str, Dict[str, Any]]] 
+    soft_skills_analysis: Union[Dict[str, Any], str]
+    roadmap: List[Union[str, Dict[str, Any]]] 
 
 
 class InterviewState(TypedDict):
