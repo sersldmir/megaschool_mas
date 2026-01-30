@@ -1,6 +1,6 @@
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
-from schemas import InterviewState, CandidateProfile, TurnLog
+from schemas import InterviewState, CandidateProfile, TurnLog, FinalFeedback
 from utils import call_mistral, parse_json_garbage
 from prompts import (
     PROFILE_PARSER_SYSTEM, 
@@ -105,14 +105,24 @@ def interviewer_node(state: InterviewState):
     }
 
 def feedback_node(state: InterviewState):
-    """Генерирует финальный отчет."""
+
     messages = [SystemMessage(content=FEEDBACK_SYSTEM)] + state["messages"]
-    
     response_text = call_mistral(messages, temperature=0.3, json_mode=True)
-    feedback_data = parse_json_garbage(response_text)
+    raw_data = parse_json_garbage(response_text)
     
+    try:
+
+        feedback_obj = FinalFeedback(**raw_data)
+        validated_data = feedback_obj.model_dump()
+        
+        system_msg = "Интервью завершено. Фидбэк успешно сгенерирован."
+    except Exception as e:
+        print(f"Ошибка валидации фидбэка: {e}")
+        validated_data = raw_data 
+        system_msg = "Интервью завершено, но при генерации отчета возникла ошибка структуры."
+
     return {
-        "final_feedback": feedback_data,
+        "final_feedback": validated_data,
         "is_finished": True,
-        "messages": [AIMessage(content="Спасибо за интервью! Результаты сохранены.")]
+        "messages": [AIMessage(content=system_msg)]
     }

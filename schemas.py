@@ -40,7 +40,8 @@ class InterviewState(TypedDict):
     
     profile: Optional[CandidateProfile]
     turn_count: int
-    logs: List[TurnLog]
+
+    logs: Annotated[List[TurnLog], operator.add]
     
     mentor_instruction: str  
     last_user_input: str     
@@ -49,3 +50,5 @@ class InterviewState(TypedDict):
     is_finished: bool
 
     temp_thoughts: Optional[str]
+    
+    final_feedback: Optional[dict]
