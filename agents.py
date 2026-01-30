@@ -73,7 +73,7 @@ def mentor_node(state: InterviewState):
     }
 
 def interviewer_node(state: InterviewState):
-    """Генерирует вопрос к кандидату."""
+
     profile = state["profile"]
     instruction = state["mentor_instruction"]
     
@@ -95,7 +95,7 @@ def interviewer_node(state: InterviewState):
         turn_id=current_turn,
         agent_visible_message=response_text,
         user_message=state["last_user_input"],
-        internal_thoughts=f"[Mentor Analysis]: {internal_thoughts} \n[Instruction]: {instruction}"
+        internal_thoughts=f"[Mentor]: {internal_thoughts} \nВыполни следующее: {instruction}"
     )
     
     return {

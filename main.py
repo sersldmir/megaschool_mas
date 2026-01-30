@@ -13,10 +13,9 @@ YELLOW = '\033[93m'
 CYAN = '\033[96m'
 
 def save_session(final_state: InterviewState):
-    """Сохраняет логи и финальный отчет в JSON."""
     
     session_data = SessionLog(
-        team_name="Mistral AI Agents",
+        team_name="Megaschool Inc",
         turns=final_state["logs"],
         final_feedback=final_state.get("final_feedback")
     )
